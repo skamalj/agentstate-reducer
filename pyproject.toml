@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentstate-reducer"
+version = "0.1.1"
+description = "Framework-agnostic message reducer for AI agent state management. Works with LangGraph, CrewAI, and plain dicts."
+authors = [{name = "Kamal", email = "skamalj@github.com"}]
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = []
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "langchain-core>=0.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/skamalj/agentstate-reducer"
+Repository = "https://github.com/skamalj/agentstate-reducer"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
