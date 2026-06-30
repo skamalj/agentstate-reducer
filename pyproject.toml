@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentstate-reducer"
-version = "0.1.1"
+version = "0.2.0"
 description = "Framework-agnostic message reducer for AI agent state management. Works with LangGraph, CrewAI, and plain dicts."
 authors = [{name = "Kamal", email = "skamalj@github.com"}]
 readme = "README.md"
@@ -19,9 +19,13 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+tokens = [
+    "tiktoken>=0.5",
+]
 dev = [
     "pytest>=7.0",
     "langchain-core>=0.2",
+    "tiktoken>=0.5",
 ]
 
 [project.urls]

@@ -13,10 +13,32 @@ class ReducerConfig:
     """
     Configuration for the MessageReducer.
 
+    Pruning operates in one of two modes:
+
+    - **Message-count mode** (default): pruning triggers when the number of
+      messages exceeds ``max_messages``, retaining ``min_messages``.
+    - **Token-budget mode**: when ``max_tokens`` is set, pruning triggers when
+      the estimated total token count exceeds ``max_tokens``, retaining the most
+      recent whole messages until the total is at or below ``target_tokens``
+      (defaults to ``max_tokens``). Messages are never truncated — only whole
+      messages are dropped. Token mode takes precedence over message-count mode.
+
     Attributes:
-        min_messages:          Number of messages to retain after pruning.
+        min_messages:          Number of messages to retain after pruning
+                               (message-count mode).
         max_messages:          Pruning triggers when message count exceeds this.
-                               Set to None to disable pruning.
+                               Set to None to disable count-based pruning.
+        max_tokens:            Pruning triggers when the estimated total token
+                               count exceeds this. Set to None (default) to use
+                               message-count mode instead.
+        target_tokens:         Prune down to at or below this token count. When
+                               None, defaults to ``max_tokens``. Set lower than
+                               ``max_tokens`` to create hysteresis (e.g. prune at
+                               4000, down to 2000).
+        token_counter:         Optional callable(message) -> int. When provided,
+                               used to count tokens per message. When omitted,
+                               tiktoken is used if installed, otherwise a
+                               character-based heuristic.
         preserve_first:        If True, index 0 is never pruned (system message).
         cascade_tool_messages: If True, when an AIMessage is pruned, also prune
                                any ToolMessages linked to it via tool_call_id.
@@ -27,6 +49,9 @@ class ReducerConfig:
 
     min_messages: int = 10
     max_messages: Optional[int] = 20
+    max_tokens: Optional[int] = None
+    target_tokens: Optional[int] = None
+    token_counter: Optional[Callable[[Any], int]] = None
     preserve_first: bool = True
     cascade_tool_messages: bool = True
     summarize_fn: Optional[Callable[[List[Any]], str]] = None

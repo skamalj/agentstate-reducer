@@ -24,6 +24,7 @@ from typing import Any, List, Optional, Set
 
 from .adapters import get_role, get_tool_call_id, get_tool_calls
 from .models import ReducerConfig, ReducerResult
+from .tokens import resolve_token_counter
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,46 @@ class MessageReducer:
     def max_messages(self) -> Optional[int]:
         return self.config.max_messages
 
+    def _token_window_end(self, messages: List[Any]) -> Optional[int]:
+        """
+        Compute the exclusive upper bound of the pruning window for token mode.
+
+        Walks messages newest→oldest, keeping the most recent whole messages that
+        fit within ``target_tokens`` (defaulting to ``max_tokens``). The preserved
+        first message, when enabled, is always retained and its tokens are
+        reserved off the top of the budget.
+
+        Returns:
+            The index marking the start of the retained recent tail (i.e. the
+            ``excess_count`` boundary). Returns ``None`` when the total token
+            count is already within ``max_tokens`` and no pruning is required.
+        """
+        if not messages:
+            return None
+
+        counter = resolve_token_counter(self.config.token_counter)
+        total_tokens = sum(counter(m) for m in messages)
+        if total_tokens <= self.config.max_tokens:
+            return None
+
+        start_idx = 1 if self.config.preserve_first else 0
+        target = self.config.target_tokens or self.config.max_tokens
+
+        # Reserve tokens for the always-retained first message.
+        reserved = counter(messages[0]) if (self.config.preserve_first and messages) else 0
+        budget = target - reserved
+
+        # Keep the most recent messages that fit in the remaining budget.
+        running = 0
+        cut = len(messages)  # default: prune the whole window
+        for i in range(len(messages) - 1, start_idx - 1, -1):
+            t = counter(messages[i])
+            if running + t > budget:
+                break
+            running += t
+            cut = i
+        return cut
+
     def reduce(
         self,
         existing: Optional[List[Any]] = None,
@@ -111,16 +152,23 @@ class MessageReducer:
             new = []
 
         messages = list(existing) + list(new)
-        max_msgs = self.config.max_messages
+        start_idx = 1 if self.config.preserve_first else 0
 
-        # No pruning needed
-        if max_msgs is None or len(messages) <= max_msgs:
-            return ReducerResult(surviving=messages, pruned=[])
+        # ── Determine the pruning window [start_idx, excess_count) ──
+        # Token-budget mode takes precedence over message-count mode.
+        if self.config.max_tokens is not None:
+            excess_count = self._token_window_end(messages)
+            # No pruning needed if total is already within budget.
+            if excess_count is None:
+                return ReducerResult(surviving=messages, pruned=[])
+        else:
+            max_msgs = self.config.max_messages
+            if max_msgs is None or len(messages) <= max_msgs:
+                return ReducerResult(surviving=messages, pruned=[])
+            excess_count = len(messages) - self.config.min_messages
 
         # ── Identify indices to prune ──
         to_delete: Set[int] = set()
-        excess_count = len(messages) - self.config.min_messages
-        start_idx = 1 if self.config.preserve_first else 0
 
         # Iterate over the pruning window: from start_idx to excess_count
         for i, msg in enumerate(messages[start_idx:excess_count], start=start_idx):
@@ -200,6 +248,13 @@ class MessageReducer:
         return _reduce
 
     def __repr__(self) -> str:
+        if self.config.max_tokens is not None:
+            return (
+                f"MessageReducer(max_tokens={self.config.max_tokens}, "
+                f"target_tokens={self.config.target_tokens or self.config.max_tokens}, "
+                f"preserve_first={self.config.preserve_first}, "
+                f"cascade_tool_messages={self.config.cascade_tool_messages})"
+            )
         return (
             f"MessageReducer(min_messages={self.config.min_messages}, "
             f"max_messages={self.config.max_messages}, "

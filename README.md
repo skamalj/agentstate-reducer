@@ -7,6 +7,7 @@ Framework-agnostic message reducer for AI agent state management. Works with **L
 Automatically prunes message history when it exceeds a threshold, keeping conversations manageable:
 
 - **Windowed pruning**: Trigger at `max_messages`, retain `min_messages`
+- **Token-budget pruning**: Trigger at `max_tokens`, prune down to `target_tokens` — whole messages only, never truncated
 - **System message preservation**: Index 0 (system prompt) is never pruned (configurable)
 - **ToolMessage cascade**: When an AI message is pruned, linked ToolMessages are pruned too
 - **Optional summarization**: Callback with pruned messages to generate an LLM summary
@@ -102,6 +103,49 @@ result = reducer.reduce(existing=messages)
 print(result.summary)  # "Summary of 5 pruned messages"
 ```
 
+## Token-Budget Pruning
+
+Instead of counting messages, you can prune to a **token budget** — useful when you want to stay within a model's context window or control cost. Set `max_tokens` and pruning switches from message-count mode to token mode.
+
+```python
+from agentstate_reducer import MessageReducer, ReducerConfig
+
+# Prune when the conversation exceeds 4000 tokens, down to ~2000
+config = ReducerConfig(max_tokens=4000, target_tokens=2000)
+reducer = MessageReducer(config=config)
+
+result = reducer.reduce(existing=messages, new=new_messages)
+# result.surviving stays within ~2000 tokens; whole messages only — never truncated
+```
+
+**Whole messages only.** The reducer never truncates message content — it drops whole messages, keeping the most recent ones that fit the budget, plus the preserved first message. This guarantees you never send a model a half-cut message.
+
+**`max_tokens` vs `target_tokens`.** Pruning *triggers* when the total exceeds `max_tokens`, and reduces down to `target_tokens` (defaults to `max_tokens` if not set). Setting `target_tokens` lower than `max_tokens` creates hysteresis — prune at 4000, down to 2000 — so pruning runs less often.
+
+### How tokens are counted
+
+The counter is resolved in three layers (highest priority first):
+
+1. **User-supplied `token_counter`** — a `Callable[[message], int]` you pass on the config. Use this for exact, model-specific counting:
+   ```python
+   import tiktoken
+   enc = tiktoken.encoding_for_model("gpt-4o")
+   config = ReducerConfig(
+       max_tokens=4000,
+       token_counter=lambda m: len(enc.encode(m.get("content", ""))),
+   )
+   ```
+2. **tiktoken** — if installed (`pip install "agentstate-reducer[tokens]"`), the `cl100k_base` encoding is used automatically. Accurate for OpenAI-family models.
+3. **Character heuristic** — `len(content) / 4` plus a small per-message overhead. Dependency-free fallback, fine for approximate budgeting.
+
+Install with tiktoken support:
+
+```bash
+pip install "agentstate-reducer[tokens]"
+```
+
+> Token mode takes precedence over message-count mode: if `max_tokens` is set, `max_messages`/`min_messages` are ignored. `preserve_first` and `cascade_tool_messages` apply in both modes.
+
 ## Pruning Behaviour
 
 - Only `ai`/`agent`/`assistant` and `human`/`user` messages are candidates for pruning.
@@ -153,8 +197,11 @@ The adapter layer uses duck typing and class-name inspection — no `langchain_c
 
 | Field | Default | Description |
 |---|---|---|
-| `min_messages` | `10` | Messages to retain after pruning |
-| `max_messages` | `20` | Threshold to trigger pruning |
+| `min_messages` | `10` | Messages to retain after pruning (message-count mode) |
+| `max_messages` | `20` | Threshold to trigger pruning (message-count mode) |
+| `max_tokens` | `None` | Token threshold to trigger pruning. When set, enables token mode (takes precedence over message-count mode) |
+| `target_tokens` | `None` | Prune down to at or below this token count. Defaults to `max_tokens` |
+| `token_counter` | `None` | `Callable[[message], int]`. When omitted: tiktoken if installed, else char heuristic |
 | `preserve_first` | `True` | Never prune index 0 (system message) |
 | `cascade_tool_messages` | `True` | Also prune ToolMessages linked to a pruned AIMessage |
 | `summarize_fn` | `None` | `Callable[[list], str]` called with pruned messages |
