@@ -45,6 +45,23 @@ class ReducerConfig:
         summarize_fn:          Optional callable(pruned_messages) -> str.
                                Called with the list of pruned messages so you can
                                generate a summary (e.g., via LLM) of what was removed.
+                               The summary is always returned on ReducerResult.summary.
+        inject_summary:        If True, the generated summary is also inserted into
+                               the surviving messages, in place of the pruned block
+                               (after preserve_first, before the retained recent tail).
+                               Requires summarize_fn. The default injection is a
+                               human summary + an ai "OK" acknowledgement pair; because
+                               these are ordinary human/ai messages at the front of the
+                               window, the next prune rolls them into the new summary —
+                               so there is always exactly one summary block, with no
+                               accumulation. Providers requiring strict role alternation
+                               are handled by the human->ai pair; override
+                               summary_message_factory for other shapes.
+        summary_message_factory:
+                               Optional callable(summary_text, pruned_count) -> list of
+                               messages. Builds the injected summary block. Defaults to
+                               a [human summary, ai "OK"] pair. Return a single-element
+                               list to inject just one message.
     """
 
     min_messages: int = 10
@@ -55,6 +72,8 @@ class ReducerConfig:
     preserve_first: bool = True
     cascade_tool_messages: bool = True
     summarize_fn: Optional[Callable[[List[Any]], str]] = None
+    inject_summary: bool = False
+    summary_message_factory: Optional[Callable[[str, int], List[Any]]] = None
 
 
 @dataclass

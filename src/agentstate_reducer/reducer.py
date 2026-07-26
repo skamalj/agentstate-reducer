@@ -24,6 +24,7 @@ from typing import Any, List, Optional, Set
 
 from .adapters import get_role, get_tool_call_id, get_tool_calls
 from .models import ReducerConfig, ReducerResult
+from .summary import default_summary_messages_factory
 from .tokens import resolve_token_counter
 
 logger = logging.getLogger(__name__)
@@ -206,13 +207,26 @@ class MessageReducer:
             len(pruned),
         )
 
-        # ── Optional summarization ──
+        # ── Optional summarization (+ optional injection) ──
+        # The summary is always returned on the result. A previously injected
+        # summary block is an ordinary human/ai pair at the front of the window,
+        # so it is naturally included in `pruned` and rolled into the new summary
+        # here — no marker/replacement bookkeeping needed.
         summary = None
         if pruned and self.config.summarize_fn is not None:
             try:
                 summary = self.config.summarize_fn(pruned)
             except Exception as exc:
                 logger.warning("Summarization failed: %s", exc)
+
+            # Inject the summary block in place of the pruned messages: after any
+            # preserved-first messages, immediately before the retained recent tail.
+            if summary is not None and self.config.inject_summary:
+                factory = self.config.summary_message_factory or default_summary_messages_factory
+                first_pruned = min(to_delete)
+                insert_pos = sum(1 for i in range(first_pruned) if i not in to_delete)
+                block = factory(summary, len(pruned))
+                surviving[insert_pos:insert_pos] = block
 
         return ReducerResult(
             surviving=surviving,

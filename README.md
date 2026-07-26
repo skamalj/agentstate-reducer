@@ -103,6 +103,42 @@ result = reducer.reduce(existing=messages)
 print(result.summary)  # "Summary of 5 pruned messages"
 ```
 
+`result.summary` is **always returned** when a `summarize_fn` is set — you can store or display it however you like.
+
+### Injecting the summary back into the conversation
+
+By default the summary is only *returned*, not added to the surviving messages. Set `inject_summary=True` to also insert it in place of the pruned block, so the model sees it on the next turn:
+
+```python
+config = ReducerConfig(
+    min_messages=10,
+    max_messages=20,
+    summarize_fn=summarize,
+    inject_summary=True,
+)
+```
+
+The default injection is a **`human` + `ai` pair** — a human message carrying the summary followed by a short `ai` acknowledgement (`"OK"`):
+
+```
+[system] → [human: "Here is the summary of previous N messages: ..."] → [ai: "OK"] → [recent tail]
+```
+
+Why a pair? It keeps the conversation well-formed for providers that require strict role alternation (`system → human → ai → …`). Because both messages are ordinary `human`/`ai` messages at the **front** of the window, the *next* prune sweeps them into the new summary automatically — so there is always **exactly one** summary block, with no accumulation and no bookkeeping.
+
+**Custom shape.** Override `summary_message_factory` — a `Callable[[summary_text, pruned_count], list[message]]` — to inject a single message or a provider-specific shape:
+
+```python
+config = ReducerConfig(
+    summarize_fn=summarize,
+    inject_summary=True,
+    # inject just one system message instead of the human/ai pair
+    summary_message_factory=lambda text, n: [{"role": "system", "content": f"Summary ({n} msgs): {text}"}],
+)
+```
+
+> The summary is placed **where the pruned messages were** — after `preserve_first`, before the retained recent tail — never at index 0 (the system prompt is preserved). When used with a checkpoint/persistence saver that stores `result.surviving`, the injected summary is persisted automatically with no saver changes.
+
 ## Token-Budget Pruning
 
 Instead of counting messages, you can prune to a **token budget** — useful when you want to stay within a model's context window or control cost. Set `max_tokens` and pruning switches from message-count mode to token mode.

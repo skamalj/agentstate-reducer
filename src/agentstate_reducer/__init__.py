@@ -6,6 +6,7 @@ Works with LangGraph, CrewAI, and plain dicts.
 
 from .models import ReducerConfig, ReducerResult
 from .reducer import MessageReducer
+from .summary import default_summary_messages_factory
 from .tokens import resolve_token_counter
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "ReducerConfig",
     "ReducerResult",
     "resolve_token_counter",
+    "default_summary_messages_factory",
 ]
