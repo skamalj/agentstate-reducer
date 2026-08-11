@@ -1,6 +1,6 @@
 # Agent State Management
 
-A growing, one-stop toolkit for managing **AI agent state** — keeping conversation history lean and persisting agent state across runs. Framework-agnostic at the core, with ready-made integrations for **LangGraph** and **CrewAI**.
+A growing, one-stop toolkit for managing **AI agent state** — keeping conversation history lean and persisting agent state across runs. Framework-agnostic at the core, with ready-made integrations for **LangGraph**, **CrewAI**, **PydanticAI**, and **Strands**.
 
 ## The Problem
 
@@ -16,35 +16,77 @@ This toolkit solves both: **pruning** (keep history lean) and **persistence** (s
 
 ## The Packages
 
+### Pruning core
+
 | Package | What it does | PyPI |
 |---|---|---|
 | **[agentstate-reducer](reducer/index.md)** | Framework-agnostic message pruning — by message count or token budget | `agentstate-reducer` |
-| **[langgraph-checkpoint-cosmosdb](langgraph/cosmosdb.md)** | LangGraph checkpoint saver for Azure CosmosDB, with built-in pruning | `langgraph-checkpoint-cosmosdb` |
-| **[langgraph-checkpoint-firestore](langgraph/firestore.md)** | LangGraph checkpoint saver for Google Firestore, with built-in pruning | `langgraph-checkpoint-firestore` |
-| **[crewai-persistence-cosmosdb](crewai/cosmosdb.md)** | CrewAI Flow persistence backend for Azure CosmosDB, with built-in pruning | `crewai-persistence-cosmosdb` |
-| **[crewai-persistence-firestore](crewai/firestore.md)** | CrewAI Flow persistence backend for Google Firestore, with built-in pruning | `crewai-persistence-firestore` |
+
+### LangGraph checkpointers (with built-in pruning)
+
+| Package | Backend | PyPI |
+|---|---|---|
+| **[langgraph-checkpoint-cosmosdb](langgraph/cosmosdb.md)** | Azure CosmosDB | `langgraph-checkpoint-cosmosdb` |
+| **[langgraph-checkpoint-firestore](langgraph/firestore.md)** | Google Firestore | `langgraph-checkpoint-firestore` |
+| **[langgraph-dynamodb-checkpoint](langgraph/dynamodb.md)** | AWS DynamoDB | `langgraph-dynamodb-checkpoint` |
+
+### CrewAI Flow persistence (with built-in pruning)
+
+| Package | Backend | PyPI |
+|---|---|---|
+| **[crewai-persistence-cosmosdb](crewai/cosmosdb.md)** | Azure CosmosDB | `crewai-persistence-cosmosdb` |
+| **[crewai-persistence-firestore](crewai/firestore.md)** | Google Firestore | `crewai-persistence-firestore` |
+| **[crewai-persistence-dynamodb](crewai/dynamodb.md)** | AWS DynamoDB | `crewai-persistence-dynamodb` |
+| **[crewai-persistence-mongodb](crewai/mongodb.md)** | MongoDB | `crewai-persistence-mongodb` |
+| **[crewai-persistence-sql](crewai/sql.md)** | Any SQLAlchemy DB | `crewai-persistence-sql` |
+
+### PydanticAI persistence (StepStore + history)
+
+| Package | Backend | PyPI |
+|---|---|---|
+| **[pydantic-ai-persistence](pydantic-ai/index.md)** | core + in-memory | `pydantic-ai-persistence` |
+| **[pydantic-ai-dynamodb-persistence](pydantic-ai/dynamodb.md)** | AWS DynamoDB | `pydantic-ai-dynamodb-persistence` |
+| **[pydantic-ai-cosmosdb-persistence](pydantic-ai/cosmosdb.md)** | Azure CosmosDB | `pydantic-ai-cosmosdb-persistence` |
+| **[pydantic-ai-firestore-persistence](pydantic-ai/firestore.md)** | Google Firestore | `pydantic-ai-firestore-persistence` |
+
+### Strands sessions
+
+| Package | Backend | PyPI |
+|---|---|---|
+| **[strands-agents-session](strands/index.md)** | core (session manager) | `strands-agents-session` |
+| **[strands-agents-session\[dynamodb\]](strands/providers/dynamodb.md)** | AWS DynamoDB | `strands-agents-session-dynamodb` |
+| **[strands-agents-session\[mongodb\]](strands/providers/mongodb.md)** | MongoDB | `strands-agents-session-mongodb` |
+| **[strands-agents-session\[sql\]](strands/providers/sql.md)** | Any SQLAlchemy DB | `strands-agents-session-sql` |
 
 !!! note "Growing toolkit"
-    This is an evolving collection. More backends and framework integrations will be added over time. The common thread is the **`agentstate-reducer`** core — every persistence integration can optionally use it to prune state before writing.
+    This is an evolving collection. More backends and framework integrations will be added over time. The common thread is the **`agentstate-reducer`** core — every pruning-aware persistence integration can optionally use it to prune state before writing. (The PydanticAI and Strands families focus on durable persistence and session management; pruning there is handled by each framework's own mechanisms.)
 
 ## How They Fit Together
 
 ```
-                  ┌─────────────────────────┐
-                  │    agentstate-reducer    │   ← pruning core (no deps)
-                  │  message-count │ tokens  │
-                  └───────────┬─────────────┘
-                              │ used by (optional) reducer= param
-          ┌───────────────────┼────────────────────┐
-          │                   │                    │
- ┌────────▼────────┐ ┌────────▼────────┐  ┌────────▼─────────┐
- │ LangGraph        │ │ CrewAI          │  │  (your own        │
- │ checkpointers    │ │ persistence     │  │   integration)    │
- │ Cosmos │ Firestore│ │ Cosmos│Firestore│  └──────────────────┘
- └─────────────────┘ └─────────────────┘
+                    ┌─────────────────────────┐
+                    │    agentstate-reducer    │   ← pruning core (no deps)
+                    │  message-count │ tokens  │
+                    └───────────┬─────────────┘
+                                │ optional reducer= param
+             ┌──────────────────┴──────────────────┐
+             │                                      │
+    ┌────────▼────────┐                    ┌────────▼────────┐
+    │ LangGraph        │                    │ CrewAI          │
+    │ checkpointers    │                    │ Flow persistence│
+    │ Cosmos·Fire·Dynamo│                    │ Cosmos·Fire·Dynamo│
+    └─────────────────┘                    │ ·Mongo·SQL      │
+                                           └─────────────────┘
+
+    ┌──────────────────────┐        ┌──────────────────────┐
+    │ PydanticAI           │        │ Strands sessions     │
+    │ StepStore + history  │        │ session manager      │
+    │ Dynamo·Cosmos·Fire   │        │ Dynamo·Mongo·SQL     │
+    └──────────────────────┘        └──────────────────────┘
+       (own persistence layers; framework-native state handling)
 ```
 
-The reducer is usable **standalone** (e.g. LangGraph's `Annotated[list, fn]` pattern), or **embedded** in any of the persistence integrations via a `reducer=` parameter.
+The reducer is usable **standalone** (e.g. LangGraph's `Annotated[list, fn]` pattern), or **embedded** in the LangGraph/CrewAI persistence integrations via a `reducer=` parameter. The **PydanticAI** and **Strands** families provide durable persistence and session storage that fit each framework's native state model.
 
 ## Quick Taste
 

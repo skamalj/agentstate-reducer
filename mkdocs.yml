@@ -1,5 +1,5 @@
 site_name: Agent State Management
-site_description: A one-stop toolkit for AI agent state management — message pruning and persistence for LangGraph and CrewAI
+site_description: A one-stop toolkit for AI agent state management — message pruning and persistence for LangGraph, CrewAI, PydanticAI, and Strands
 site_url: https://skamalj.github.io/agentstate-reducer/
 repo_url: https://github.com/skamalj/agentstate-reducer
 repo_name: skamalj/agentstate-reducer
@@ -56,6 +56,28 @@ nav:
   - LangGraph Checkpointers:
       - CosmosDB: langgraph/cosmosdb.md
       - Firestore: langgraph/firestore.md
+      - DynamoDB: langgraph/dynamodb.md
   - CrewAI Persistence:
       - CosmosDB: crewai/cosmosdb.md
       - Firestore: crewai/firestore.md
+      - DynamoDB: crewai/dynamodb.md
+      - MongoDB: crewai/mongodb.md
+      - SQL (SQLAlchemy): crewai/sql.md
+  - PydanticAI Persistence:
+      - Overview: pydantic-ai/index.md
+      - StepStore & History: pydantic-ai/concepts.md
+      - DynamoDB: pydantic-ai/dynamodb.md
+      - CosmosDB: pydantic-ai/cosmosdb.md
+      - Firestore: pydantic-ai/firestore.md
+  - Strands Sessions:
+      - Overview: strands/index.md
+      - Concepts:
+          - Overview: strands/concepts/overview.md
+          - Authentication: strands/concepts/auth.md
+      - Core:
+          - What You Get: strands/core/index.md
+          - Build Your Own Backend: strands/core/building-a-backend.md
+      - Providers:
+          - DynamoDB: strands/providers/dynamodb.md
+          - MongoDB: strands/providers/mongodb.md
+          - SQL (SQLAlchemy): strands/providers/sql.md
