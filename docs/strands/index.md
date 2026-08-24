@@ -13,6 +13,12 @@ Pluggable **session storage** for [Strands Agents](https://strandsagents.com) �
 
 Each provider is an independent PyPI package that pulls the core transitively — a DynamoDB user never installs Mongo code. Pick one directly, or via the core's extras.
 
+!!! tip "Beyond sessions: storage & memory"
+    The same family also provides two other Strands layers:
+
+    - **[Storage backends](storage.md)** — `strands.storage.Storage` (durable bytes for snapshots, context offload, memory backing): `strands-sql/postgres/mongodb-storage`, `strands-storage-dynamodb`.
+    - **[Memory store](memory.md)** — a `MemoryStore` with semantic recall via DynamoDB native vector search: `strands-dynamodb-store`.
+
 ## Quick taste
 
 ```python

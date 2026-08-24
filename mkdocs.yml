@@ -81,3 +81,5 @@ nav:
           - DynamoDB: strands/providers/dynamodb.md
           - MongoDB: strands/providers/mongodb.md
           - SQL (SQLAlchemy): strands/providers/sql.md
+      - Storage Backends: strands/storage.md
+      - Memory Store (DynamoDB): strands/memory.md
