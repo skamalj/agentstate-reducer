@@ -17,7 +17,7 @@ Each provider is an independent PyPI package that pulls the core transitively �
     The same family also provides two other Strands layers:
 
     - **[Storage backends](storage.md)** — `strands.storage.Storage` (durable bytes for snapshots, context offload, memory backing): `strands-sql/postgres/mongodb-storage`, `strands-storage-dynamodb`.
-    - **[Memory store](memory.md)** — a `MemoryStore` with semantic recall via DynamoDB native vector search: `strands-dynamodb-store`.
+    - **[Memory stores](memory.md)** — `MemoryStore`s with semantic recall via native vector search: `strands-dynamodb-store` (DynamoDB), `strands-postgres-store` (pgvector), `strands-mongodb-store` (Atlas).
 
 ## Quick taste
 
