@@ -11,7 +11,7 @@ Real Strands **`MemoryStore`** implementations — long-term, *semantic* agent m
 |---|---|---|
 | [`strands-dynamodb-store`](https://pypi.org/project/strands-dynamodb-store/) | DynamoDB native **`SearchVectors`** | `boto3>=1.43.78` |
 | [`strands-postgres-store`](https://pypi.org/project/strands-postgres-store/) · `strands-store-postgres` | PostgreSQL **pgvector** (`<=>` / HNSW) | `vector` extension on the server |
-| [`strands-mongodb-store`](https://pypi.org/project/strands-mongodb-store/) · `strands-store-mongodb` | MongoDB **Atlas `$vectorSearch`** | MongoDB **Atlas** |
+| [`strands-mongodb-store`](https://pypi.org/project/strands-mongodb-store/) · `strands-store-mongodb` | MongoDB **Vector Search — Automated Embedding** (Voyage) | Atlas **or** self-managed Community 8.2+ (`mongot`) + a Voyage key |
 
 ## Usage
 
@@ -45,20 +45,20 @@ Constructor per backend:
     PostgresMemoryStore(name="mem", url="postgresql://user:pass@host:5432/db")
     ```
 
-=== "MongoDB (Atlas)"
+=== "MongoDB (Automated Embedding)"
 
     ```python
     from strands_mongodb_store import MongoDBMemoryStore
     MongoDBMemoryStore(name="mem",
-        connection_string="mongodb+srv://user:pass@cluster.mongodb.net",
-        database_name="agent", collection_name="memory")
+        connection_string="mongodb+srv://user:pass@cluster.mongodb.net",  # or self-managed URI
+        database_name="agent", collection_name="memory", model="voyage-4-lite")
     ```
 
 ## How it works
 
 - **Semantic recall** via the backend's native ANN — ranked by similarity, surfaced as `_score` in each entry's metadata.
-- **You bring the embeddings.** None of these backends generate them; by default each store embeds with **Amazon Bedrock Titan Text v2** (1024-dim, cosine). Pass any `embedder` callable (`Callable[[str], list[float]]`) to use Cohere / OpenAI / a local model.
-- Each `add` stores `{id, content, embedding, metadata, createdAt}`; the table / index (DynamoDB vector index, pgvector HNSW, Atlas vector index) is created automatically.
+- **Embeddings.** DynamoDB and Postgres **bring their own** — by default each embeds with **Amazon Bedrock Titan Text v2** (1024-dim, cosine); pass any `embedder` callable to use Cohere / OpenAI / a local model. **MongoDB uses Automated Embedding** — MongoDB (via Voyage AI) generates embeddings at index- and query-time, so you store and query **plain text** and there is **no external embedder**.
+- Each `add` stores a record (`content` + metadata; DynamoDB/Postgres also store the vector); the table / index is created automatically.
 
 !!! tip "Store vs. storage"
     A memory **store** (`strands-<backend>-store`) is the *semantic* layer. The byte **[Storage](storage.md)** backend is `strands-<backend>-storage` / `strands-storage-<backend>` — a different, lower layer.
@@ -67,7 +67,7 @@ Constructor per backend:
 
 - **DynamoDB** — native vector search GA'd 2026-08-05; needs a region where it's available. Table is `PAY_PER_REQUEST` with a vector index.
 - **PostgreSQL** — needs the `pgvector` extension (`apt install postgresql-16-pgvector`, `brew install pgvector`, or the extension on RDS / Cloud SQL / Azure). The store runs `CREATE EXTENSION IF NOT EXISTS vector`.
-- **MongoDB** — Atlas only (`$vectorSearch` is an Atlas feature); community/self-hosted MongoDB is not supported.
+- **MongoDB** — MongoDB Vector Search on **Atlas** *or* **self-managed Community 8.2+** running the `mongot` binary (Linux; Docker / tarball / K8s). Automated Embedding needs a **Voyage AI API key** configured on the deployment. Models: `voyage-4-lite` (default), `voyage-4`, `voyage-4-large`, `voyage-code-3`.
 
 ## License
 
