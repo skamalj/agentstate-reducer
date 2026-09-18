@@ -20,9 +20,11 @@ Preserves original behaviors:
 """
 
 import logging
+import threading
+from collections import OrderedDict
 from typing import Any, List, Optional, Set
 
-from .adapters import get_role, get_tool_call_id, get_tool_calls
+from .adapters import get_id, get_role, get_tool_call_id, get_tool_calls
 from .models import ReducerConfig, ReducerResult
 from .summary import default_summary_messages_factory
 from .tokens import resolve_token_counter
@@ -82,6 +84,9 @@ class MessageReducer:
                 min_messages=min_messages,
                 max_messages=max_messages,
             )
+        # on_prune exactly-once bookkeeping: message ids already delivered to hooks.
+        self._delivered: "OrderedDict[str, None]" = OrderedDict()
+        self._delivered_lock = threading.Lock()
 
     @property
     def min_messages(self) -> int:
@@ -90,6 +95,26 @@ class MessageReducer:
     @property
     def max_messages(self) -> Optional[int]:
         return self.config.max_messages
+
+    def _undelivered(self, pruned: List[Any]) -> List[Any]:
+        """Filter ``pruned`` to messages not yet handed to on_prune hooks, and record them.
+
+        Messages without an id cannot be tracked and are always returned.
+        """
+        out: List[Any] = []
+        with self._delivered_lock:
+            for msg in pruned:
+                mid = get_id(msg)
+                if mid is None:
+                    out.append(msg)
+                    continue
+                if mid in self._delivered:
+                    continue
+                self._delivered[mid] = None
+                out.append(msg)
+            while len(self._delivered) > self.config.dedupe_window:
+                self._delivered.popitem(last=False)
+        return out
 
     def _token_window_end(self, messages: List[Any]) -> Optional[int]:
         """
@@ -135,13 +160,17 @@ class MessageReducer:
         self,
         existing: Optional[List[Any]] = None,
         new: Optional[List[Any]] = None,
+        namespace: Any = None,
     ) -> ReducerResult:
         """
         Concatenate existing + new messages, then prune if over threshold.
 
         Args:
-            existing: Current message list. Defaults to empty list.
-            new:      New messages to append. Defaults to empty list.
+            existing:  Current message list. Defaults to empty list.
+            new:       New messages to append. Defaults to empty list.
+            namespace: Opaque value forwarded unchanged to every ``on_prune``
+                       hook (e.g. a long-term-memory namespace). The reducer
+                       never inspects it. Defaults to None.
 
         Returns:
             ``ReducerResult`` with surviving messages, pruned messages,
@@ -227,6 +256,16 @@ class MessageReducer:
                 insert_pos = sum(1 for i in range(first_pruned) if i not in to_delete)
                 block = factory(summary, len(pruned))
                 surviving[insert_pos:insert_pos] = block
+
+        # ── on_prune hooks: hand the pruned messages to long-term memory ──
+        if pruned and self.config.on_prune:
+            to_deliver = self._undelivered(pruned) if self.config.dedupe_on_prune else pruned
+            if to_deliver:
+                for hook in self.config.on_prune:
+                    try:
+                        hook(to_deliver, namespace)
+                    except Exception as exc:
+                        logger.warning("on_prune hook %r failed: %s", hook, exc)
 
         return ReducerResult(
             surviving=surviving,

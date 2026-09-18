@@ -139,6 +139,40 @@ config = ReducerConfig(
 
 > The summary is placed **where the pruned messages were** — after `preserve_first`, before the retained recent tail — never at index 0 (the system prompt is preserved). When used with a checkpoint/persistence saver that stores `result.surviving`, the injected summary is persisted automatically with no saver changes.
 
+## Long-Term Memory Hooks (`on_prune`)
+
+Messages leaving the window are exactly the ones worth deciding about for long-term memory. `on_prune` hands them to any callable the moment they are pruned — the reducer never imports a store, a framework, or an LLM, so it stays zero-dependency and the same hook body works for every framework that runs the reducer (LangGraph checkpointers, CrewAI persistence, ...).
+
+```python
+from agentstate_reducer import MessageReducer, ReducerConfig, Background
+
+def remember(pruned, namespace):
+    # namespace is whatever the framework integration forwarded (see below)
+    for m in pruned:
+        store.put(namespace, key=str(uuid4()), value={"role": m.type, "content": m.content})
+
+reducer = MessageReducer(config=ReducerConfig(
+    max_messages=20,
+    on_prune=[remember],              # cheap hook: runs inline
+    # on_prune=[Background(remember)]  # slow hook (LLM extraction): runs off the request path
+))
+```
+
+**Where the namespace comes from.** `reduce(..., namespace=X)` forwards `X` untouched to every hook. Framework integrations look up `ReducerConfig.namespace_key` (default `"memory_namespace"`) in their per-call config and pass that — e.g. in LangGraph:
+
+```python
+graph.invoke(input, config={"configurable": {
+    "thread_id": uuid4().hex,                       # short-term scope (checkpoint)
+    "memory_namespace": ("memories", user.id),      # long-term scope (store)
+}})
+```
+
+If the app never sets it, integrations fall back to a per-thread namespace. Old callers that pass no `namespace` get `None`.
+
+**Exactly once.** Persistence layers often call `reduce()` several times per turn on overlapping lists (LangGraph writes a checkpoint per super-step). With `dedupe_on_prune=True` (default) each message id reaches the hooks once per reducer instance; `ReducerResult.pruned` is never filtered.
+
+**`Background(fn, workers=2, max_pending=1000)`** runs a hook on a bounded worker pool: copies the list, drops (with a warning) when the backlog is full, swallows hook exceptions, drains at exit. On serverless runtimes call `close()` at the end of the handler.
+
 ## Token-Budget Pruning
 
 Instead of counting messages, you can prune to a **token budget** — useful when you want to stay within a model's context window or control cost. Set `max_tokens` and pruning switches from message-count mode to token mode.
@@ -241,8 +275,13 @@ The adapter layer uses duck typing and class-name inspection — no `langchain_c
 | `preserve_first` | `True` | Never prune index 0 (system message) |
 | `cascade_tool_messages` | `True` | Also prune ToolMessages linked to a pruned AIMessage |
 | `summarize_fn` | `None` | `Callable[[list], str]` called with pruned messages |
+| `inject_summary` | `False` | Insert the summary back into `surviving` in place of the pruned block |
+| `on_prune` | `[]` | `RememberFn` list: `(pruned, namespace) -> Any`, called after pruning |
+| `namespace_key` | `"memory_namespace"` | Key integrations read from per-call config to find the namespace |
+| `dedupe_on_prune` | `True` | Deliver each message id to hooks at most once per reducer instance |
+| `dedupe_window` | `10000` | Bounded memory of delivered ids |
 
-### `reducer.reduce(existing, new) -> ReducerResult`
+### `reducer.reduce(existing, new, namespace=None) -> ReducerResult`
 
 | Field | Type | Description |
 |---|---|---|

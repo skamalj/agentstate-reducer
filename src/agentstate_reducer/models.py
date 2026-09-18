@@ -7,6 +7,14 @@ These are framework-agnostic — no imports from langchain, crewai, etc.
 from dataclasses import dataclass, field
 from typing import Any, Callable, List, Optional
 
+# A prune hook: called with (pruned_messages, namespace) whenever a reduce()
+# call prunes at least one message. ``namespace`` is whatever the caller of
+# reduce() forwarded (a LangGraph store namespace tuple, a user id, ...) or
+# None when the caller did not supply one. The reducer never inspects it.
+RememberFn = Callable[[List[Any], Any], Any]
+
+DEFAULT_NAMESPACE_KEY = "memory_namespace"
+
 
 @dataclass
 class ReducerConfig:
@@ -62,6 +70,35 @@ class ReducerConfig:
                                messages. Builds the injected summary block. Defaults to
                                a [human summary, ai "OK"] pair. Return a single-element
                                list to inject just one message.
+        on_prune:              Optional list of ``RememberFn`` callables
+                               ``(pruned_messages, namespace) -> Any``. Each is
+                               invoked (in order) after pruning, with the pruned
+                               messages and the ``namespace`` passed to
+                               ``reduce()``. Use this to hand messages leaving
+                               the context window to a long-term memory store.
+                               Hooks run synchronously; wrap an expensive hook
+                               in ``agentstate_reducer.Background`` to run it
+                               off the request path. A hook that raises is
+                               logged and skipped; it never breaks the reduce.
+        namespace_key:         The key that framework integrations (checkpointers,
+                               persistence layers) look up in their per-call
+                               config / state to find the memory namespace to
+                               forward to ``reduce(namespace=...)``. Defaults to
+                               ``"memory_namespace"``. The reducer itself never
+                               reads it; it is published here so every
+                               integration agrees on one name.
+        dedupe_on_prune:       If True (default), a message is handed to the
+                               ``on_prune`` hooks at most once per reducer
+                               instance, keyed by message id. Persistence layers
+                               commonly call ``reduce()`` several times per turn
+                               on overlapping message lists (e.g. LangGraph
+                               writes a checkpoint per super-step), which would
+                               otherwise deliver the same pruned message to the
+                               hooks repeatedly. Messages without an id are
+                               always delivered. Set False to receive every
+                               prune verbatim.
+        dedupe_window:         How many recently-delivered message ids to remember
+                               for ``dedupe_on_prune`` (bounded, oldest evicted).
     """
 
     min_messages: int = 10
@@ -74,6 +111,10 @@ class ReducerConfig:
     summarize_fn: Optional[Callable[[List[Any]], str]] = None
     inject_summary: bool = False
     summary_message_factory: Optional[Callable[[str, int], List[Any]]] = None
+    on_prune: List[RememberFn] = field(default_factory=list)
+    namespace_key: str = DEFAULT_NAMESPACE_KEY
+    dedupe_on_prune: bool = True
+    dedupe_window: int = 10_000
 
 
 @dataclass
