@@ -56,3 +56,12 @@ reducer = MessageReducer(max_tokens=4000, target_tokens=2000)
 ```
 
 This is the recommended pattern for production conversational agents: **persist for durability, prune for efficiency, in one place**.
+
+## From pruning to long-term memory
+
+Short-term state (the checkpoint) and long-term memory (a store) are separate pipes; nothing built-in moves history from one to the other. Because the reducer already computes *which messages are leaving the window*, it is the natural junction: **[`on_prune` hooks](../reducer/long-term-memory.md)** hand that slice to any callable, and the persistence integration forwards the app's **memory namespace** (the user, not the thread) so the two scopes never mix.
+
+```python
+reducer = MessageReducer(config=ReducerConfig(max_tokens=4000, on_prune=[remember]))
+# every prune now also writes to long-term memory — exactly once per message
+```

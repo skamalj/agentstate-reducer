@@ -29,7 +29,8 @@ In both modes it:
 - **preserves index 0** (the system prompt) by default,
 - **cascades tool messages** — when an AI message with tool calls is pruned, its linked tool results are pruned too, so you never have orphaned tool messages,
 - **normalises role aliases** — `user`→`human`, `assistant`/`agent`→`ai` — so OpenAI-format dicts and agent-framework outputs work without preprocessing,
-- can optionally **[summarize](summarization.md)** what was pruned.
+- can optionally **[summarize](summarization.md)** what was pruned,
+- can hand pruned messages to **[long-term memory hooks](long-term-memory.md)** (`on_prune`) — the moment they leave the window, with the app's memory namespace, exactly once, zero new dependencies.
 
 ## Quick start
 

@@ -52,6 +52,7 @@ nav:
       - Message-Count Pruning: reducer/message-count.md
       - Token-Budget Pruning: reducer/token-budget.md
       - Summarization: reducer/summarization.md
+      - Long-Term Memory Hooks: reducer/long-term-memory.md
       - API Reference: reducer/api.md
   - LangGraph Checkpointers:
       - CosmosDB: langgraph/cosmosdb.md

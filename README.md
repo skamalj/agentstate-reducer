@@ -11,6 +11,7 @@ Automatically prunes message history when it exceeds a threshold, keeping conver
 - **System message preservation**: Index 0 (system prompt) is never pruned (configurable)
 - **ToolMessage cascade**: When an AI message is pruned, linked ToolMessages are pruned too
 - **Optional summarization**: Callback with pruned messages to generate an LLM summary
+- **Long-term memory hooks (`on_prune`)** — *new in 0.4.0*: pruned messages are handed to any callable the moment they leave the window, with the app's memory namespace, exactly once. Wire them to a LangGraph `BaseStore`, LangMem, a Strands `MemoryStore`, or your own engine — the reducer imports none of them. See [Long-Term Memory Hooks](#long-term-memory-hooks-on_prune).
 - **Role alias normalisation**: Understands `user`/`assistant`/`agent` in addition to `human`/`ai` — works with OpenAI-format dicts and agent framework outputs out of the box
 - **Framework-agnostic**: Works with plain dicts, LangChain `BaseMessage` subclasses, or any duck-typed message object — zero dependencies
 

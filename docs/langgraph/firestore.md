@@ -149,6 +149,35 @@ When `len(messages) > max_messages`, the oldest `human`/`ai` messages are remove
 !!! tip "Full reducer configuration"
     For `preserve_first`, `cascade_tool_messages`, `summarize_fn`, token budgeting, and role aliases, see the [reducer overview](../reducer/index.md) and [token budget](../reducer/token-budget.md) docs.
 
+## Long-term memory via `on_prune`
+
+!!! success "New in langgraph-checkpoint-firestore 0.3.0"
+    Messages pruned from the checkpoint are exactly the ones leaving the model's view. The saver forwards a **memory namespace** to the reducer, and any [`on_prune`](../reducer/long-term-memory.md) hook receives `(pruned_messages, namespace)` — so pruned turns flow straight into a LangGraph `BaseStore`, LangMem, or any memory engine, with no extra node and no package coupling.
+
+```python
+from uuid import uuid4
+from agentstate_reducer import MessageReducer, ReducerConfig, Background
+from langgraph_checkpoint_firestore import FirestoreSaver
+
+store = ...  # any langgraph BaseStore
+
+def remember(pruned, namespace):
+    for m in pruned:
+        store.put(tuple(namespace), key=str(uuid4()), value={"role": m.type, "content": m.content})
+
+reducer = MessageReducer(config=ReducerConfig(max_messages=20, on_prune=[remember]))
+# on_prune=[Background(remember)] runs a slow hook (e.g. LLM extraction) off the request path
+saver = FirestoreSaver("my-project", "checkpoints", reducer=reducer)
+graph = builder.compile(checkpointer=saver, store=store)
+
+graph.invoke(input, config={"configurable": {
+    "thread_id": uuid4().hex,                    # short-term scope (this checkpoint)
+    "memory_namespace": ("memories", user_id),   # long-term scope (the store)
+}})
+```
+
+The saver reads `memory_namespace` (or whatever `ReducerConfig.namespace_key` names) from `config["configurable"]` on every `put()` and passes it through untouched. If the app never sets it, the namespace falls back to `("memories", thread_id)`. Each pruned message reaches the hooks **once**, even though LangGraph writes several checkpoints per turn. Requires `agentstate-reducer>=0.4.0`.
+
 ## Data model
 
 Checkpoints are stored in a hierarchical Firestore structure, co-locating each checkpoint with its pending writes and enabling efficient per-thread queries:

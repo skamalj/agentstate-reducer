@@ -14,13 +14,16 @@ You also need that state to **survive between runs** — so a conversation can r
 
 This toolkit solves both: **pruning** (keep history lean) and **persistence** (store and resume state) — and lets you combine them so pruning happens automatically at the persistence layer.
 
+!!! success "New: pruning → long-term memory, with no package coupling"
+    `agentstate-reducer` 0.4.0 adds **[`on_prune` hooks](reducer/long-term-memory.md)**: messages leaving the context window are handed to any callable — a LangGraph `BaseStore`, LangMem, a Strands `MemoryStore`, your own engine — at the exact moment they stop being visible to the model. The LangGraph checkpointers forward a per-call **memory namespace** (the *user*, not the thread) so short-term and long-term scopes stay separate. Exactly-once delivery and an off-request-path `Background` wrapper are built in.
+
 ## The Packages
 
 ### Pruning core
 
 | Package | What it does | PyPI |
 |---|---|---|
-| **[agentstate-reducer](reducer/index.md)** | Framework-agnostic message pruning — by message count or token budget | `agentstate-reducer` |
+| **[agentstate-reducer](reducer/index.md)** | Framework-agnostic message pruning — by message count or token budget — plus **[`on_prune` long-term memory hooks](reducer/long-term-memory.md)** | `agentstate-reducer` |
 
 ### LangGraph checkpointers (with built-in pruning)
 
@@ -67,6 +70,7 @@ This toolkit solves both: **pruning** (keep history lean) and **persistence** (s
                     ┌─────────────────────────┐
                     │    agentstate-reducer    │   ← pruning core (no deps)
                     │  message-count │ tokens  │
+                    │  on_prune ──► long-term  │   ← pruned msgs → any store
                     └───────────┬─────────────┘
                                 │ optional reducer= param
              ┌──────────────────┴──────────────────┐
@@ -86,7 +90,7 @@ This toolkit solves both: **pruning** (keep history lean) and **persistence** (s
        (own persistence layers; framework-native state handling)
 ```
 
-The reducer is usable **standalone** (e.g. LangGraph's `Annotated[list, fn]` pattern), or **embedded** in the LangGraph/CrewAI persistence integrations via a `reducer=` parameter. The **PydanticAI** and **Strands** families provide durable persistence and session storage that fit each framework's native state model.
+The reducer is usable **standalone** (e.g. LangGraph's `Annotated[list, fn]` pattern), or **embedded** in the LangGraph/CrewAI persistence integrations via a `reducer=` parameter. Embedded, its **[`on_prune` hooks](reducer/long-term-memory.md)** turn every prune into a long-term-memory write, with the integration forwarding the app's memory namespace. The **PydanticAI** and **Strands** families provide durable persistence and session storage that fit each framework's native state model.
 
 ## Quick Taste
 
@@ -113,6 +117,25 @@ The reducer is usable **standalone** (e.g. LangGraph's `Annotated[list, fn]` pat
     )
     ```
 
+=== "Pruned → long-term memory"
+
+    ```python
+    from agentstate_reducer import MessageReducer, ReducerConfig
+    from langgraph_dynamodb_checkpoint import DynamoDBSaver
+
+    def remember(pruned, namespace):          # any BaseStore / LangMem / engine
+        for m in pruned:
+            store.put(namespace, key=m.id, value={"content": m.content})
+
+    saver = DynamoDBSaver("checkpoints",
+        reducer=MessageReducer(config=ReducerConfig(max_messages=20, on_prune=[remember])))
+
+    graph.invoke(input, config={"configurable": {
+        "thread_id": thread_id,                          # short-term scope
+        "memory_namespace": ("memories", user_id),       # long-term scope
+    }})
+    ```
+
 === "CrewAI + Firestore"
 
     ```python
@@ -133,3 +156,4 @@ The reducer is usable **standalone** (e.g. LangGraph's `Annotated[list, fn]` pat
 - New to the concepts? Read the **[State Management Overview](concepts/overview.md)**.
 - Not sure which package you need? See **[Choosing an Approach](concepts/choosing.md)**.
 - Just want pruning? Go to **[agentstate-reducer](reducer/index.md)**.
+- Want pruned history to become long-term memory? Read **[Long-Term Memory Hooks](reducer/long-term-memory.md)**.

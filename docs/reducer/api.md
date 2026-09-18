@@ -16,12 +16,13 @@ If `config` is omitted, a `ReducerConfig` is built from `min_messages`/`max_mess
 
 ### Methods
 
-#### `reduce(existing=None, new=None) -> ReducerResult`
+#### `reduce(existing=None, new=None, namespace=None) -> ReducerResult`
 
-Concatenates `existing + new`, then prunes if over threshold (count or token mode).
+Concatenates `existing + new`, then prunes if over threshold (count or token mode). `namespace` is an opaque value forwarded unchanged to every [`on_prune`](long-term-memory.md) hook; the reducer never inspects it.
 
 ```python
 result = reducer.reduce(existing=history, new=[new_message])
+result = reducer.reduce(existing=history, namespace=("memories", user_id))   # with on_prune hooks
 ```
 
 #### `as_langgraph_reducer() -> Callable`
@@ -47,6 +48,12 @@ ReducerConfig(
     preserve_first=True,
     cascade_tool_messages=True,
     summarize_fn=None,
+    inject_summary=False,
+    summary_message_factory=None,
+    on_prune=[],
+    namespace_key="memory_namespace",
+    dedupe_on_prune=True,
+    dedupe_window=10_000,
 )
 ```
 
@@ -60,6 +67,32 @@ ReducerConfig(
 | `preserve_first` | `True` | Never prune index 0 (system message) |
 | `cascade_tool_messages` | `True` | Also prune ToolMessages linked to a pruned AIMessage |
 | `summarize_fn` | `None` | `Callable[[list], str]` called with pruned messages |
+| `inject_summary` | `False` | Insert the summary back into `surviving` in place of the pruned block (see [Summarization](summarization.md)) |
+| `summary_message_factory` | `None` | `Callable[[str, int], list]` building the injected summary block |
+| `on_prune` | `[]` | List of `RememberFn` — `(pruned, namespace) -> Any` — called after pruning (see [Long-Term Memory Hooks](long-term-memory.md)) |
+| `namespace_key` | `"memory_namespace"` | Key that framework integrations read from per-call config to find the namespace to forward |
+| `dedupe_on_prune` | `True` | Deliver each message id to hooks at most once per reducer instance |
+| `dedupe_window` | `10000` | Bounded memory of delivered ids |
+
+---
+
+## `RememberFn`
+
+```python
+RememberFn = Callable[[List[Any], Any], Any]     # (pruned_messages, namespace) -> Any
+```
+
+The type of an `on_prune` hook. `namespace` is whatever the caller of `reduce()` forwarded, or `None`.
+
+---
+
+## `Background`
+
+```python
+Background(fn: RememberFn, *, workers: int = 2, max_pending: int = 1000)
+```
+
+Wraps a `RememberFn` so it runs on a bounded worker pool instead of inside the caller's `reduce()`. Copies the pruned list, drops (and counts in `.dropped`) when the backlog is full, swallows hook exceptions, drains at exit. `close(wait=True)` stops accepting work; usable as a context manager. See [Long-Term Memory Hooks](long-term-memory.md#running-hooks-off-the-request-path).
 
 ---
 
