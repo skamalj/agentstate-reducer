@@ -53,6 +53,16 @@ This toolkit solves both: **pruning** (keep history lean) and **persistence** (s
 | **[crewai-persistence-mongodb](crewai/mongodb.md)** | MongoDB | `crewai-persistence-mongodb` |
 | **[crewai-persistence-sql](crewai/sql.md)** | Any SQLAlchemy DB | `crewai-persistence-sql` |
 
+### CrewAI memory backends — long-term memory (with native vector search)
+
+| Package | Backend | PyPI |
+|---|---|---|
+| **[crewai-memory-core](crewai/memory.md)** | shared base for CrewAI `StorageBackend`s | `crewai-memory-core` |
+| **[crewai-memory-dynamodb](crewai/memory.md)** | AWS DynamoDB (native `SearchVectors`) | `crewai-memory-dynamodb` |
+| **[crewai-memory-postgres](crewai/memory.md)** | PostgreSQL (pgvector) | `crewai-memory-postgres` |
+| **[crewai-memory-cosmosdb](crewai/memory.md)** | Azure Cosmos DB (`VectorDistance`) | `crewai-memory-cosmosdb` |
+| **[crewai-memory-firestore](crewai/memory.md)** | Google Firestore (`find_nearest`) | `crewai-memory-firestore` |
+
 ### PydanticAI persistence (StepStore + history)
 
 | Package | Backend | PyPI |

@@ -65,6 +65,7 @@ nav:
       - DynamoDB: crewai/dynamodb.md
       - MongoDB: crewai/mongodb.md
       - SQL (SQLAlchemy): crewai/sql.md
+  - CrewAI Memory Backends (Long-Term Memory): crewai/memory.md
   - PydanticAI Persistence:
       - Overview: pydantic-ai/index.md
       - StepStore & History: pydantic-ai/concepts.md
