@@ -33,6 +33,16 @@ This toolkit solves both: **pruning** (keep history lean) and **persistence** (s
 | **[langgraph-checkpoint-firestore](langgraph/firestore.md)** | Google Firestore | `langgraph-checkpoint-firestore` |
 | **[langgraph-dynamodb-checkpoint](langgraph/dynamodb.md)** | AWS DynamoDB | `langgraph-dynamodb-checkpoint` |
 
+### LangGraph stores — long-term memory (with native semantic search)
+
+| Package | Backend | PyPI |
+|---|---|---|
+| **[langgraph-store-core](langgraph/stores.md)** | shared base + `IndexConfig` semantic search | `langgraph-store-core` |
+| **[langgraph-store-dynamodb](langgraph/stores.md)** | AWS DynamoDB (native `SearchVectors`) | `langgraph-store-dynamodb` |
+| **[langgraph-store-postgres](langgraph/stores.md)** | PostgreSQL (pgvector) | `langgraph-store-postgres` |
+| **[langgraph-store-cosmosdb](langgraph/stores.md)** | Azure Cosmos DB (`VectorDistance`) | `langgraph-store-cosmosdb` |
+| **[langgraph-store-firestore](langgraph/stores.md)** | Google Firestore (`find_nearest`) | `langgraph-store-firestore` |
+
 ### CrewAI Flow persistence (with built-in pruning)
 
 | Package | Backend | PyPI |

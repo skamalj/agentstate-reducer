@@ -58,6 +58,7 @@ nav:
       - CosmosDB: langgraph/cosmosdb.md
       - Firestore: langgraph/firestore.md
       - DynamoDB: langgraph/dynamodb.md
+  - LangGraph Stores (Long-Term Memory): langgraph/stores.md
   - CrewAI Persistence:
       - CosmosDB: crewai/cosmosdb.md
       - Firestore: crewai/firestore.md
