@@ -60,7 +60,7 @@ The store needs a **namespace** (the user, tenant, or account the memory belongs
 
 === "CrewAI"
 
-    Put `memory_namespace` in your flow state model; the persistence layer reads it from the state dict on `save_state`. *(Rolling out to the `crewai-persistence-*` packages.)*
+    Put `memory_namespace` in your flow state model; every `crewai-persistence-*` package (0.2.0+) reads it from the state on `save_state` and falls back to `"/flow/<flow_uuid>"`. In CrewAI the namespace is a `Memory` **scope path string**, so the hook can pass it straight to `memory.remember(..., scope=namespace)`. See [CrewAI Memory Backends](../crewai/memory.md).
 
 If the app never sets it, integrations fall back to a per-thread namespace such as `("memories", thread_id)`. Callers that pass no `namespace` at all get `None` — old code keeps working unchanged.
 

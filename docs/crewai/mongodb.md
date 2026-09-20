@@ -162,6 +162,36 @@ When `len(messages) > max_messages`, the oldest `human`/`ai` messages are remove
 !!! tip "Full reducer configuration"
     For `preserve_first`, `cascade_tool_messages`, `summarize_fn`, token budgeting, and role aliases, see the [reducer overview](../reducer/index.md) and [token budget](../reducer/token-budget.md) docs.
 
+## Long-term memory via `on_prune`
+
+!!! success "New in crewai-persistence-mongodb 0.2.0"
+    Messages pruned from the flow state are exactly the ones leaving the model's view. The persistence layer forwards a **memory namespace** to the reducer, and any [`on_prune`](../reducer/long-term-memory.md) hook receives `(pruned_messages, namespace)` — so pruned turns can flow straight into CrewAI's unified `Memory` on a [cloud backend](memory.md), with no package coupling.
+
+```python
+from agentstate_reducer import MessageReducer, ReducerConfig, Background
+from crewai.memory import Memory
+
+memory = Memory(storage=...)                     # e.g. crewai-memory-mongodb
+
+def remember(pruned, namespace):
+    text = "
+".join(m["content"] for m in pruned)
+    memory.remember_many(memory.extract_memories(text), scope=namespace)   # LLM calls -> off the request path
+
+reducer = MessageReducer(config=ReducerConfig(max_messages=20, on_prune=[Background(remember)]))
+
+class SupportState(BaseModel):
+    id: str = ""
+    memory_namespace: str = "/user/kamal"        # long-term scope: the USER, not the flow
+    messages: list = []
+
+@persist(MongoDBFlowPersistence(..., reducer=reducer))
+class SupportFlow(Flow[SupportState]):
+    ...
+```
+
+The persistence layer reads `memory_namespace` (or whatever `ReducerConfig.namespace_key` names) from the flow state on every `save_state` and passes it through untouched. If the state never sets it, the namespace falls back to `"/flow/<flow_uuid>"`. Each pruned message reaches the hooks once. Requires `agentstate-reducer>=0.4.0`.
+
 ## Data model
 
 Each call to `save_state` upserts a single MongoDB document keyed by `flow_uuid`. Only the latest state for each flow run is stored (`replace_one` overwrites the matching document).
