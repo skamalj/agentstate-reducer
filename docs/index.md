@@ -1,23 +1,41 @@
 # Agent State Management
 
-A growing, one-stop toolkit for managing **AI agent state** — keeping conversation history lean and persisting agent state across runs. Framework-agnostic at the core, with ready-made integrations for **LangGraph**, **CrewAI**, **PydanticAI**, and **Strands**.
+Checkpointers keep a conversation alive between turns. Long-term memory keeps what matters alive between conversations. This toolkit provides both on managed cloud databases for **LangGraph, CrewAI, Strands and PydanticAI**, plus the one piece none of the frameworks ship: a way to move history from the first to the second at the right moment, through the reducer's `on_prune` hook, with no package coupling.
 
-## The Problem
+<figure markdown>
+  <img src="assets/agentstate-flow.svg" alt="Animated flow: messages fill a bucket between min and max bounds; every message is checkpointed; at the upper bound the reducer prunes the oldest messages down to the lower bound, hands them through on_prune to a memory extractor and long-term store, and a new conversation later recalls them" style="width:100%; max-width:1100px;">
+  <figcaption>Backends shown are illustrative; the table below is the precise map.</figcaption>
+</figure>
 
-Long-running agents accumulate message history with every turn. Left unchecked this:
+## What the animation shows
 
-- inflates persisted state size and storage cost,
-- slows down serialization and retrieval, and
-- eventually blows past the LLM's context window.
+1. **The window is a bucket with two waterlines.** Messages stack up between `min_messages` and `max_messages`. Every new message is checkpointed immediately — the tick mark appearing on the checkpointer each time a bubble lands. Short-term state is always current.
+2. **Nothing else happens until the upper bound is hit.** That is the only moment `agentstate-reducer` acts. It lifts the oldest messages out until the stack sits at the lower bound. The surviving messages are checkpointed as usual.
+3. **The pruned messages are not thrown away.** The reducer hands them to its `on_prune` hook. That hook calls a memory extractor, which turns turns into facts and embeddings, and writes them into the long-term store. Two details ride along: the namespace is the **user, not the thread**, so memory outlives any single conversation, and each message is delivered to the `on_prune` hook **exactly once** even though checkpointers save several times per turn.
+4. **The sawtooth repeats.** Fill to the upper bound, cut to the lower, fill again. Checkpoint writes are constant; long-term writes are rare and deliberate.
+5. **A new conversation recalls.** The next thread starts empty and pulls relevant memories back by semantic search on the user's namespace.
 
-You also need that state to **survive between runs** — so a conversation can resume tomorrow exactly where it stopped today.
+## Who sits where
 
-This toolkit solves both: **pruning** (keep history lean) and **persistence** (store and resume state) — and lets you combine them so pruning happens automatically at the persistence layer.
+The reducer is the same package in every column and every row. What changes per framework is which of our packages plays checkpointer and store, and which extractor you plug into the reducer's `on_prune` hook.
 
-!!! success "New: pruning → long-term memory, with no package coupling"
-    `agentstate-reducer` 0.4.0 adds **[`on_prune` hooks](reducer/long-term-memory.md)**: messages leaving the context window are handed to any callable — a LangGraph `BaseStore`, LangMem, a Strands `MemoryStore`, your own engine — at the exact moment they stop being visible to the model. The LangGraph checkpointers forward a per-call **memory namespace** (the *user*, not the thread) so short-term and long-term scopes stay separate. Exactly-once delivery and an off-request-path `Background` wrapper are built in.
+| Framework | Checkpointer (short-term) | Extractor, plugged into the reducer's `on_prune` hook | Store (long-term) |
+|---|---|---|---|
+| **LangGraph** | [`langgraph-dynamodb-checkpoint`](langgraph/dynamodb.md) · [`langgraph-checkpoint-cosmosdb`](langgraph/cosmosdb.md) · [`langgraph-checkpoint-firestore`](langgraph/firestore.md) | **LangMem** `create_memory_store_manager`, or your own | [`langgraph-store-dynamodb` · `-postgres` · `-cosmosdb` · `-firestore`](langgraph/stores.md) (`BaseStore`, native vector search) |
+| **CrewAI** | [`crewai-persistence-dynamodb` · `-mongodb` · `-sql` · `-cosmosdb` · `-firestore`](crewai/dynamodb.md) (Flow state) | **CrewAI `Memory.extract_memories`**, the framework's own engine | [`crewai-memory-dynamodb` · `-postgres` · `-cosmosdb` · `-firestore`](crewai/memory.md) (`StorageBackend`, native vector search) |
+| **Strands** | [`strands-session-dynamodb` · `-mongodb` · `-sql`](strands/index.md) and [`strands-*-storage`](strands/storage.md) — sessions only; the reducer is not in Strands' save path, so call `reduce()` yourself to get `on_prune` | **Strands `ModelExtractor`** via `MemoryManager` | [`strands-dynamodb-store` · `strands-postgres-store` · `strands-mongodb-store`](strands/memory.md) (`MemoryStore`, native vector search) |
+| **PydanticAI** | [`pydantic-ai-dynamodb-persistence` · `-cosmosdb-` · `-firestore-`](pydantic-ai/index.md) (`StepStore`, history) | the harness expects the **model** to write via `write_memory`; from the hook, `append_memory` does a CAS-safe append | [`pydantic-ai-dynamodb-memory` · `-cosmosdb-` · `-firestore-` · `-postgres-`](pydantic-ai/memory.md) (harness `MemoryStore`, notebook files) |
 
-## The Packages
+!!! success "We ship no extractor, on purpose. **[How do I plug one in?](reducer/extractors.md)**"
+    The checkpointer and store columns are ours. The extractor column is deliberately not: LangMem, CrewAI's memory engine and Strands' extractor already do that job, and they keep improving. The reducer's `on_prune` hook is the socket. It hands your extractor the pruned messages and the namespace, exactly once, and imports none of them — so you can swap engines without touching the reducer, the checkpointer or the store. The linked page has a working snippet for every row of the table.
+
+## Three things worth knowing before you pick
+
+- **You do not need all three columns.** A checkpointer alone gives you resumable conversations. Checkpointer plus reducer gives you bounded context and cost. The store and the reducer's `on_prune` hook only matter once you want memory across conversations.
+- **Every store does semantic search natively** on LangGraph, CrewAI and Strands: DynamoDB `SearchVectors`, pgvector, Cosmos `VectorDistance`, Firestore `find_nearest`, MongoDB Vector Search. No separate vector database. PydanticAI's harness store is a versioned notebook with lexical search, by upstream design.
+- **The namespace is the app's decision.** In LangGraph it rides in `configurable`, in CrewAI in flow state, in PydanticAI in `deps`. The integration forwards it to the reducer's `on_prune` hook; the reducer never guesses.
+
+## Package reference
 
 ### Pruning core
 
@@ -90,37 +108,6 @@ This toolkit solves both: **pruning** (keep history lean) and **persistence** (s
 | **[strands-agents-session\[dynamodb\]](strands/providers/dynamodb.md)** | AWS DynamoDB | `strands-agents-session-dynamodb` |
 | **[strands-agents-session\[mongodb\]](strands/providers/mongodb.md)** | MongoDB | `strands-agents-session-mongodb` |
 | **[strands-agents-session\[sql\]](strands/providers/sql.md)** | Any SQLAlchemy DB | `strands-agents-session-sql` |
-
-!!! note "Growing toolkit"
-    This is an evolving collection. More backends and framework integrations will be added over time. The common thread is the **`agentstate-reducer`** core — every pruning-aware persistence integration can optionally use it to prune state before writing. (The PydanticAI and Strands families focus on durable persistence and session management; pruning there is handled by each framework's own mechanisms.)
-
-## How They Fit Together
-
-```
-                    ┌─────────────────────────┐
-                    │    agentstate-reducer    │   ← pruning core (no deps)
-                    │  message-count │ tokens  │
-                    │  on_prune ──► long-term  │   ← pruned msgs → any store
-                    └───────────┬─────────────┘
-                                │ optional reducer= param
-             ┌──────────────────┴──────────────────┐
-             │                                      │
-    ┌────────▼────────┐                    ┌────────▼────────┐
-    │ LangGraph        │                    │ CrewAI          │
-    │ checkpointers    │                    │ Flow persistence│
-    │ Cosmos·Fire·Dynamo│                    │ Cosmos·Fire·Dynamo│
-    └─────────────────┘                    │ ·Mongo·SQL      │
-                                           └─────────────────┘
-
-    ┌──────────────────────┐        ┌──────────────────────┐
-    │ PydanticAI           │        │ Strands sessions     │
-    │ StepStore + history  │        │ session manager      │
-    │ Dynamo·Cosmos·Fire   │        │ Dynamo·Mongo·SQL     │
-    └──────────────────────┘        └──────────────────────┘
-       (own persistence layers; framework-native state handling)
-```
-
-The reducer is usable **standalone** (e.g. LangGraph's `Annotated[list, fn]` pattern), or **embedded** in the LangGraph/CrewAI persistence integrations via a `reducer=` parameter. Embedded, its **[`on_prune` hooks](reducer/long-term-memory.md)** turn every prune into a long-term-memory write, with the integration forwarding the app's memory namespace. The **PydanticAI** and **Strands** families provide durable persistence and session storage that fit each framework's native state model.
 
 ## Quick Taste
 

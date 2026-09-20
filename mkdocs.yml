@@ -53,6 +53,7 @@ nav:
       - Token-Budget Pruning: reducer/token-budget.md
       - Summarization: reducer/summarization.md
       - Long-Term Memory Hooks: reducer/long-term-memory.md
+      - Plugging in an Extractor: reducer/extractors.md
       - API Reference: reducer/api.md
   - LangGraph Checkpointers:
       - CosmosDB: langgraph/cosmosdb.md
