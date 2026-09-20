@@ -21,13 +21,13 @@ The reducer is the same package in every column and every row. What changes per 
 
 | Framework | Checkpointer (short-term) | Extractor, plugged into the reducer's `on_prune` hook | Store (long-term) |
 |---|---|---|---|
-| **LangGraph** | [`langgraph-dynamodb-checkpoint`](langgraph/dynamodb.md) · [`langgraph-checkpoint-cosmosdb`](langgraph/cosmosdb.md) · [`langgraph-checkpoint-firestore`](langgraph/firestore.md) | **LangMem** `create_memory_store_manager`, or your own | [`langgraph-store-dynamodb` · `-postgres` · `-cosmosdb` · `-firestore`](langgraph/stores.md) (`BaseStore`, native vector search) |
+| **LangGraph** | [`langgraph-dynamodb-checkpoint`](langgraph/dynamodb.md) · [`langgraph-checkpoint-cosmosdb`](langgraph/cosmosdb.md) · [`langgraph-checkpoint-firestore`](langgraph/firestore.md) | **[`langgraph-memory`](langgraph/memory.md)** (ours: extract, consolidate, recall by similarity + recency + importance), or LangMem (dormant), or your own | [`langgraph-store-dynamodb` · `-postgres` · `-cosmosdb` · `-firestore`](langgraph/stores.md) (`BaseStore`, native vector search) |
 | **CrewAI** | [`crewai-persistence-dynamodb` · `-mongodb` · `-sql` · `-cosmosdb` · `-firestore`](crewai/dynamodb.md) (Flow state) | **CrewAI `Memory.extract_memories`**, the framework's own engine | [`crewai-memory-dynamodb` · `-postgres` · `-cosmosdb` · `-firestore`](crewai/memory.md) (`StorageBackend`, native vector search) |
 | **Strands** | [`strands-session-dynamodb` · `-mongodb` · `-sql`](strands/index.md) and [`strands-*-storage`](strands/storage.md) — sessions only; the reducer is not in Strands' save path, so call `reduce()` yourself to get `on_prune` | **Strands `ModelExtractor`** via `MemoryManager` | [`strands-dynamodb-store` · `strands-postgres-store` · `strands-mongodb-store`](strands/memory.md) (`MemoryStore`, native vector search) |
 | **PydanticAI** | [`pydantic-ai-dynamodb-persistence` · `-cosmosdb-` · `-firestore-`](pydantic-ai/index.md) (`StepStore`, history) | the harness expects the **model** to write via `write_memory`; from the hook, `append_memory` does a CAS-safe append | [`pydantic-ai-dynamodb-memory` · `-cosmosdb-` · `-firestore-` · `-postgres-`](pydantic-ai/memory.md) (harness `MemoryStore`, notebook files) |
 
-!!! success "We ship no extractor, on purpose. **[How do I plug one in?](reducer/extractors.md)**"
-    The checkpointer and store columns are ours. The extractor column is deliberately not: LangMem, CrewAI's memory engine and Strands' extractor already do that job, and they keep improving. The reducer's `on_prune` hook is the socket. It hands your extractor the pruned messages and the namespace, exactly once, and imports none of them — so you can swap engines without touching the reducer, the checkpointer or the store. The linked page has a working snippet for every row of the table.
+!!! success "The extractor is pluggable, on purpose. **[How do I plug one in?](reducer/extractors.md)**"
+    The checkpointer and store columns are ours. The extractor column is mostly not: CrewAI's memory engine and Strands' extractor already do that job, and they keep improving. The one exception is LangGraph, where the ecosystem's engine (LangMem) went dormant, so we ship **[`langgraph-memory`](langgraph/memory.md)**. Either way the reducer's `on_prune` hook is the socket: it hands your extractor the pruned messages and the namespace, exactly once, and imports none of them — so you can swap engines without touching the reducer, the checkpointer or the store. The linked page has a working snippet for every row of the table.
 
 ## Three things worth knowing before you pick
 
@@ -60,6 +60,12 @@ The reducer is the same package in every column and every row. What changes per 
 | **[langgraph-store-postgres](langgraph/stores.md)** | PostgreSQL (pgvector) | `langgraph-store-postgres` |
 | **[langgraph-store-cosmosdb](langgraph/stores.md)** | Azure Cosmos DB (`VectorDistance`) | `langgraph-store-cosmosdb` |
 | **[langgraph-store-firestore](langgraph/stores.md)** | Google Firestore (`find_nearest`) | `langgraph-store-firestore` |
+
+### LangGraph memory engine — extraction, consolidation, recall
+
+| Package | What it does | PyPI |
+|---|---|---|
+| **[langgraph-memory](langgraph/memory.md)** | LLM fact extraction, insert/update/skip consolidation, recall ranked by similarity + recency + importance over any indexed `BaseStore`; `on_prune` hook, agent tools, recall node | `langgraph-memory` |
 
 ### CrewAI Flow persistence (with built-in pruning)
 

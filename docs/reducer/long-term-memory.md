@@ -99,9 +99,17 @@ on_prune=[Background(remember)]
 !!! warning "Serverless"
     Runtimes that freeze the process after the response (AWS Lambda, Cloud Run with CPU throttling) can strand queued work. Call `bg.close()` at the end of the handler, or use the inline form.
 
-## Pairing with LangMem or an extraction engine
+## Pairing with an extraction engine
 
-`on_prune` only decides *when*. What to store is the hook's business, so the natural pairing is an extractor inside the hook:
+`on_prune` only decides *when*. What to store is the hook's business, so the natural pairing is an extractor inside the hook. For LangGraph the ready-made one is our [`langgraph-memory`](../langgraph/memory.md) engine, whose `engine.on_prune` is itself a `RememberFn`:
+
+```python
+from langgraph_memory import MemoryEngine
+engine = MemoryEngine(store, "anthropic:claude-sonnet-5")
+on_prune=[Background(engine.on_prune)]        # extract → consolidate → store, under the forwarded namespace
+```
+
+LangMem also fits the same slot:
 
 ```python
 manager = create_memory_store_manager("anthropic:claude-sonnet-5", namespace=("memories", "{user_id}"))

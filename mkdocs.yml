@@ -60,6 +60,7 @@ nav:
       - Firestore: langgraph/firestore.md
       - DynamoDB: langgraph/dynamodb.md
   - LangGraph Stores (Long-Term Memory): langgraph/stores.md
+  - LangGraph Memory Engine (Extraction & Recall): langgraph/memory.md
   - CrewAI Persistence:
       - CosmosDB: crewai/cosmosdb.md
       - Firestore: crewai/firestore.md

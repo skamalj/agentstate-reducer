@@ -6,6 +6,27 @@ The hook is a plain callable, `hook(pruned_messages, namespace)`. It fires once 
 
 Every snippet below has the same shape: build the extractor, write a few lines that call it, register that function as the reducer's `on_prune` hook. Snippets marked *tested* mirror an end-to-end test that ships in the corresponding repo.
 
+=== "LangGraph + langgraph-memory (tested)"
+
+    ```python
+    from langgraph_memory import MemoryEngine
+    from agentstate_reducer import MessageReducer, ReducerConfig, Background
+    from langgraph_store_postgres import PostgresStore
+    from langgraph_dynamodb_checkpoint import DynamoDBSaver
+
+    store = PostgresStore(url, index={"dims": 1024, "embed": embedder, "fields": ["content"]})
+    engine = MemoryEngine(store, "anthropic:claude-sonnet-5")          # extract → consolidate → recall
+
+    reducer = MessageReducer(config=ReducerConfig(max_messages=20, on_prune=[Background(engine.on_prune)]))   # engine.on_prune IS the reducer's on_prune hook
+    saver = DynamoDBSaver("checkpoints", reducer=reducer)
+    graph = builder.compile(checkpointer=saver, store=store)
+
+    graph.invoke(input, config={"configurable": {"thread_id": tid, "memory_namespace": ("memories", user_id)}})
+    engine.recall("what does the user prefer?", ("memories", user_id))   # similarity + recency + importance
+    ```
+
+    Our maintained engine for LangGraph, modelled on CrewAI's. See [LangGraph Memory Engine](../langgraph/memory.md).
+
 === "LangGraph + LangMem"
 
     ```python
