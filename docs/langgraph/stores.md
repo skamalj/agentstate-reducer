@@ -53,7 +53,7 @@ print(hits[0].score, hits[0].value)
 - **`embed`** — any LangChain `Embeddings`, a `list[str] -> list[list[float]]` callable, or a provider string such as `"openai:text-embedding-3-small"`. `bedrock_titan_embeddings()` ships in core.
 - **`fields`** — JSON paths to embed; default `["$"]` (the whole value). `put(..., index=False)` skips one item; `put(..., index=["title"])` overrides the fields.
 - **`score`** — cosine similarity on every `SearchItem` when `query` is given; `None` otherwise.
-- A store constructed **without** `index` is filter-only and ignores `query`, exactly as LangGraph documents.
+- A store constructed **without** `index` is filter-only and ignores `query`, exactly as LangGraph documents. **LangMem never passes `index=` itself**, so pair it only with a store built with an `IndexConfig`, or its semantic search silently degrades to filter-only.
 
 === "DynamoDB"
 

@@ -78,6 +78,9 @@ Persistence layers often call `reduce()` several times per turn on overlapping l
 
 Messages without an id are always delivered. `ReducerResult.pruned` is **never** filtered — only what the hooks see.
 
+!!! note "LangGraph `durability`"
+    With the default `durability="async"` or `"sync"`, LangGraph writes a checkpoint per super-step, so the reducer (and `on_prune`) runs several times per turn — dedupe handles the overlap. With `durability="exit"` only the final state is checkpointed, so the reducer runs **once per run** and `on_prune` fires only then.
+
 ## Running hooks off the request path
 
 `on_prune` fires inside the persistence layer's save, which is on the request path. A plain `store.put` is fine inline; an LLM extraction call is not. Wrap it:
@@ -110,6 +113,10 @@ on_prune=[Background(remember)]
 ```
 
 LangMem still does extraction and consolidation into the store; the reducer just replaced its clock with a better one. Swap the body for any other engine and nothing else moves.
+
+!!! warning "Two things to know about LangMem (checked September 2026)"
+    - **It is dormant, not deprecated.** Last functional release 0.0.30 in October 2025, no maintainer reply on the LangGraph 1.0 compatibility issue, and the LangGraph memory docs no longer mention it. It still works against `BaseStore`.
+    - **It never passes `index=` on `put`.** LangMem relies on the store being constructed with an `IndexConfig`; without one its `search(query=...)` silently degrades to filter-only. Build our stores with `index={"dims": ..., "embed": ..., "fields": [...]}` when pairing with LangMem — see [LangGraph Stores](../langgraph/stores.md).
 
 ## Worked example (LangGraph + DynamoDB)
 

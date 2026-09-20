@@ -203,6 +203,11 @@ graph.invoke(input, config={"configurable": {
 
 The saver reads `memory_namespace` (or whatever `ReducerConfig.namespace_key` names) from `config["configurable"]` on every `put()` and passes it through untouched. If the app never sets it, the namespace falls back to `("memories", thread_id)`. Each pruned message reaches the hooks **once**, even though LangGraph writes several checkpoints per turn. Requires `agentstate-reducer>=0.4.0`.
 
+## Conformance
+
+!!! success "Passes LangGraph's official checkpointer conformance suite — FULL base (langgraph-checkpoint-cosmosdb 0.3.2)"
+    Validated with [`langgraph-checkpoint-conformance`](https://pypi.org/project/langgraph-checkpoint-conformance/), the suite LangGraph's docs name as the validation path: `put`, `put_writes`, `get_tuple`, `list` (ordering, `before`, `limit`, metadata filters, namespaces, pending writes) and `delete_thread` all pass. The extended capabilities `copy_thread`, `delete_for_runs` and `prune` are not implemented. 0.3.2 also raised the floor to `langgraph-checkpoint>=4.1.1`, which carries the serde security fixes, and fixed a pending-writes bug where several writes from one task overwrote each other. The conformance test ships in the repo's `tests/`.
+
 ## Data model
 
 Checkpoints and writes are stored as separate items in the same container, differentiated by a key prefix and partition key:
