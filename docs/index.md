@@ -72,6 +72,16 @@ This toolkit solves both: **pruning** (keep history lean) and **persistence** (s
 | **[pydantic-ai-cosmosdb-persistence](pydantic-ai/cosmosdb.md)** | Azure CosmosDB | `pydantic-ai-cosmosdb-persistence` |
 | **[pydantic-ai-firestore-persistence](pydantic-ai/firestore.md)** | Google Firestore | `pydantic-ai-firestore-persistence` |
 
+### PydanticAI memory backends — long-term memory (harness `MemoryStore`)
+
+| Package | Backend | PyPI |
+|---|---|---|
+| **[pydantic-ai-memory-core](pydantic-ai/memory.md)** | shared base for harness `MemoryStore`s (CAS + receipts) | `pydantic-ai-memory-core` |
+| **[pydantic-ai-dynamodb-memory](pydantic-ai/memory.md)** | AWS DynamoDB (conditional writes) | `pydantic-ai-dynamodb-memory` |
+| **[pydantic-ai-cosmosdb-memory](pydantic-ai/memory.md)** | Azure Cosmos DB (ETag CAS) | `pydantic-ai-cosmosdb-memory` |
+| **[pydantic-ai-firestore-memory](pydantic-ai/memory.md)** | Google Firestore (transactions) | `pydantic-ai-firestore-memory` |
+| **[pydantic-ai-postgres-memory](pydantic-ai/memory.md)** | PostgreSQL (upstream store, from a URL) | `pydantic-ai-postgres-memory` |
+
 ### Strands sessions
 
 | Package | Backend | PyPI |

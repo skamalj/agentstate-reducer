@@ -72,6 +72,7 @@ nav:
       - DynamoDB: pydantic-ai/dynamodb.md
       - CosmosDB: pydantic-ai/cosmosdb.md
       - Firestore: pydantic-ai/firestore.md
+  - PydanticAI Memory Backends (Long-Term Memory): pydantic-ai/memory.md
   - Strands Sessions:
       - Overview: strands/index.md
       - Concepts:
