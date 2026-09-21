@@ -3,7 +3,7 @@
 A LangGraph `BaseCheckpointSaver` for **Azure CosmosDB** with **built-in message pruning**. It persists agent state between runs so your graphs can resume from any prior checkpoint, and it can automatically cap your message history before each write — no changes to your graph code or state annotations required.
 
 !!! note "Current version"
-    `langgraph-checkpoint-cosmosdb` **0.3.3** · Requires **Python 3.10+**
+    `langgraph-checkpoint-cosmosdb` **0.4.0** · Requires **Python 3.10+**
 
 ## What it is
 
@@ -208,8 +208,21 @@ The saver reads `memory_namespace` (or whatever `ReducerConfig.namespace_key` na
 
 ## Conformance
 
-!!! success "Passes LangGraph's official checkpointer conformance suite — FULL base (langgraph-checkpoint-cosmosdb 0.3.2)"
-    Validated with [`langgraph-checkpoint-conformance`](https://pypi.org/project/langgraph-checkpoint-conformance/), the suite LangGraph's docs name as the validation path: `put`, `put_writes`, `get_tuple`, `list` (ordering, `before`, `limit`, metadata filters, namespaces, pending writes) and `delete_thread` all pass. The extended capabilities `copy_thread`, `delete_for_runs` and `prune` are not implemented. 0.3.2 also raised the floor to `langgraph-checkpoint>=4.1.1`, which carries the serde security fixes, and fixed a pending-writes bug where several writes from one task overwrote each other. The conformance test ships in the repo's `tests/`.
+!!! success "Passes LangGraph's official checkpointer conformance suite — FULL, all 8 capabilities (langgraph-checkpoint-cosmosdb 0.4.0)"
+    Validated with [`langgraph-checkpoint-conformance`](https://pypi.org/project/langgraph-checkpoint-conformance/), the suite LangGraph's docs name as the validation path. Base: `put`, `put_writes`, `get_tuple`, `list` (ordering, `before`, `limit`, metadata filters, namespaces, pending writes), `delete_thread`. Extended, new in 0.4.0: `copy_thread`, `delete_for_runs`, `prune`. The conformance test ships in the repo's `tests/` and asserts the FULL level.
+
+### LangSmith Deployment
+
+LangSmith Deployment probes a custom checkpointer for these capabilities at startup: without `delete_for_runs` the rollback multitask strategy is unavailable, without `copy_thread` thread forking falls back to a slow per-checkpoint copy, and without `prune` history pruning is off. `CosmosDBSaver` implements all three, so it is a drop-in through `langgraph.json`:
+
+```json
+{"checkpointer": {"path": "./src/agent/checkpointer.py:generate_checkpointer"}}
+```
+
+The same methods work outside the platform for housekeeping: `saver.prune([thread_id], strategy="keep_latest")`, `saver.delete_for_runs([run_id])`, `saver.copy_thread(src, dst)`.
+
+!!! warning "Two caveats"
+    `prune` is not `DeltaChannel`-aware; do not use `keep_latest` on threads whose graph uses `DeltaChannel`. `delete_for_runs` matches a `run_id` attribute written since 0.4.0; checkpoints stored by earlier versions are not found.
 
 ## Data model
 
