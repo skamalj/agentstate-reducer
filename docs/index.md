@@ -15,6 +15,9 @@ Checkpointers keep a conversation alive between turns. Long-term memory keeps wh
 4. **The sawtooth repeats.** Fill to the upper bound, cut to the lower, fill again. Checkpoint writes are constant; long-term writes are rare and deliberate.
 5. **A new conversation recalls.** The next thread starts empty and pulls relevant memories back by semantic search on the user's namespace.
 
+!!! success "The part nobody else ships: an automatic route from checkpoint to long-term memory that cannot become a bottleneck"
+    Every framework has a checkpointer and a store. None of them connects the two. Here the connection is inside the checkpointer's save path, so it needs no extra node, callback or scheduler, and it is built not to slow that path down: `Background(...)` runs the hook on a bounded worker pool off the request, each message is delivered exactly once, and a hook that raises is logged and skipped, never failing the checkpoint. The checkpoint write costs the same with or without memory.
+
 ## Who sits where
 
 The reducer is the same package in every column and every row. What changes per framework is which of our packages plays checkpointer and store, and which extractor you plug into the reducer's `on_prune` hook.
