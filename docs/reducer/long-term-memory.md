@@ -56,7 +56,7 @@ The store needs a **namespace** (the user, tenant, or account the memory belongs
     }})
     ```
 
-    All three checkpointers ([DynamoDB](../langgraph/dynamodb.md), [CosmosDB](../langgraph/cosmosdb.md), [Firestore](../langgraph/firestore.md)) read it from `config["configurable"]` on every `put()`.
+    All three checkpointers ([DynamoDB](../langgraph/dynamodb.md), [CosmosDB](../langgraph/cosmosdb.md), [Firestore](../langgraph/firestore.md)) read it from `config["configurable"]` on every `put()`. So does [`ReducingSaver`](reducing-saver.md), which brings the same behaviour to PostgresSaver or any other checkpointer.
 
 === "CrewAI"
 

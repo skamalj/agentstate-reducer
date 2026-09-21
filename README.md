@@ -66,6 +66,25 @@ class MyState(TypedDict):
 
 `as_langgraph_reducer()` returns a `(existing, new) -> list` function that LangGraph calls on every state merge.
 
+## Any LangGraph Checkpointer, Bounded (`ReducingSaver`)
+
+Checkpoint storage grows on two axes: how many checkpoints you keep (`prune`, TTL) and how big each one is. The messages channel is stored whole on every step, so a thread's blobs grow quadratically with its length, and keep-latest never shrinks the latest one. `ReducingSaver` runs the reducer inside any saver's `put`, so every checkpoint holds at most `max_messages` messages and the pruned turns go to `on_prune` once each:
+
+```bash
+pip install "agentstate-reducer[langgraph]"
+```
+
+```python
+from langgraph.checkpoint.postgres import PostgresSaver
+from agentstate_reducer import MessageReducer, ReducerConfig
+from agentstate_reducer.langgraph import ReducingSaver
+
+saver = ReducingSaver(PostgresSaver.from_conn_string(url), MessageReducer(config=ReducerConfig(max_messages=20)))
+graph = builder.compile(checkpointer=saver)
+```
+
+Works with PostgresSaver, SQLite, MongoDB, Redis, in-memory. Wrapping one of the agentstate checkpointers (DynamoDB, Cosmos DB, Firestore) hands the reducer to the saver instead, so it still runs once; wrapping a saver that already has a *different* reducer raises. Optional capabilities (`copy_thread`, `delete_for_runs`, `prune`) are delegated only when the inner saver implements them. Not for `DeltaChannel`-backed message channels. Docs: [Any Checkpointer, Bounded](https://skamalj.github.io/agentstate-reducer/reducer/reducing-saver/).
+
 ## CosmosDB Checkpoint Integration
 
 When using `langgraph-checkpoint-cosmosdb`, pass a `MessageReducer` to reduce messages at the persistence layer — useful when you don't control the state definition:

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentstate-reducer"
-version = "0.4.0"
+version = "0.5.0"
 description = "Framework-agnostic message reducer for AI agent state management. Works with LangGraph, CrewAI, and plain dicts."
 authors = [{name = "Kamal", email = "skamalj@github.com"}]
 readme = "README.md"
@@ -22,10 +22,19 @@ classifiers = [
 tokens = [
     "tiktoken>=0.5",
 ]
+langgraph = [
+    "langgraph-checkpoint>=4.1.1",
+]
 dev = [
     "pytest>=7.0",
-    "langchain-core>=0.2",
+    "pytest-asyncio",
+    "langchain-core>=1.0",
     "tiktoken>=0.5",
+    "langgraph>=1.0",
+    "langgraph-checkpoint>=4.1.1",
+    "langgraph-checkpoint-postgres",
+    "langgraph-checkpoint-conformance",
+    "psycopg[binary]",
 ]
 
 [project.urls]

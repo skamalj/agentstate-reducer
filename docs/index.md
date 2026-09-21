@@ -24,7 +24,7 @@ The reducer is the same package in every column and every row. What changes per 
 
 | Framework | Checkpointer (short-term) | Extractor, plugged into the reducer's `on_prune` hook | Store (long-term) |
 |---|---|---|---|
-| **LangGraph** | [`langgraph-dynamodb-checkpoint`](langgraph/dynamodb.md) · [`langgraph-checkpoint-cosmosdb`](langgraph/cosmosdb.md) · [`langgraph-checkpoint-firestore`](langgraph/firestore.md) | **[`langgraph-memory`](langgraph/memory.md)** (ours: extract, consolidate, recall by similarity + recency + importance), or LangMem (dormant), or your own | [`langgraph-store-dynamodb` · `-postgres` · `-cosmosdb` · `-firestore`](langgraph/stores.md) (`BaseStore`, native vector search) |
+| **LangGraph** | [`langgraph-dynamodb-checkpoint`](langgraph/dynamodb.md) · [`langgraph-checkpoint-cosmosdb`](langgraph/cosmosdb.md) · [`langgraph-checkpoint-firestore`](langgraph/firestore.md), or **any other saver** through [`ReducingSaver`](reducer/reducing-saver.md) | **[`langgraph-memory`](langgraph/memory.md)** (ours: extract, consolidate, recall by similarity + recency + importance), or LangMem (dormant), or your own | [`langgraph-store-dynamodb` · `-postgres` · `-cosmosdb` · `-firestore`](langgraph/stores.md) (`BaseStore`, native vector search) |
 | **CrewAI** | [`crewai-persistence-dynamodb` · `-mongodb` · `-sql` · `-cosmosdb` · `-firestore`](crewai/dynamodb.md) (Flow state) | **CrewAI `Memory.extract_memories`**, the framework's own engine | [`crewai-memory-dynamodb` · `-postgres` · `-cosmosdb` · `-firestore`](crewai/memory.md) (`StorageBackend`, native vector search) |
 | **Strands** | [`strands-session-dynamodb` · `-mongodb` · `-sql`](strands/index.md) and [`strands-*-storage`](strands/storage.md) — sessions only; the reducer is not in Strands' save path, so call `reduce()` yourself to get `on_prune` | **Strands `ModelExtractor`** via `MemoryManager` | [`strands-dynamodb-store` · `strands-postgres-store` · `strands-mongodb-store`](strands/memory.md) (`MemoryStore`, native vector search) |
 | **PydanticAI** | [`pydantic-ai-dynamodb-persistence` · `-cosmosdb-` · `-firestore-`](pydantic-ai/index.md) (`StepStore`, history) | the harness expects the **model** to write via `write_memory`; from the hook, `append_memory` does a CAS-safe append | [`pydantic-ai-dynamodb-memory` · `-cosmosdb-` · `-firestore-` · `-postgres-`](pydantic-ai/memory.md) (harness `MemoryStore`, notebook files) |
@@ -44,7 +44,7 @@ The reducer is the same package in every column and every row. What changes per 
 
 | Package | What it does | PyPI |
 |---|---|---|
-| **[agentstate-reducer](reducer/index.md)** | Framework-agnostic message pruning — by message count or token budget — plus **[`on_prune` long-term memory hooks](reducer/long-term-memory.md)** | `agentstate-reducer` |
+| **[agentstate-reducer](reducer/index.md)** | Framework-agnostic message pruning — by message count or token budget — plus **[`on_prune` long-term memory hooks](reducer/long-term-memory.md)** and [`ReducingSaver`](reducer/reducing-saver.md) for any LangGraph checkpointer | `agentstate-reducer` |
 
 ### LangGraph checkpointers (with built-in pruning)
 
