@@ -3,7 +3,7 @@
 A LangGraph `BaseCheckpointSaver` for **Google Firestore** with **built-in message pruning**. It persists agent state between runs so your graphs can resume from any prior checkpoint, and it can automatically cap your message history before each write — no changes to your graph code or state annotations required.
 
 !!! note "Current version"
-    `langgraph-checkpoint-firestore` **0.2.1** · Requires **Python 3.10+**
+    `langgraph-checkpoint-firestore` **0.3.2** · Requires **Python 3.10+**
 
 ## What it is
 
@@ -30,6 +30,9 @@ A LangGraph `BaseCheckpointSaver` for **Google Firestore** with **built-in messa
     ```
 
 The `[reducer]` extra pulls in `agentstate-reducer`, required only if you pass a `reducer`.
+
+!!! info "Built without `reducer=`?"
+    Since the current version the saver logs **one INFO line per process** saying that message history is unbounded, with a link to the [long-term memory page](../reducer/long-term-memory.md). It is a hint, never an error. Silence it with `AGENTSTATE_QUIET=1`, or pass a reducer.
 
 ## Firestore setup
 
